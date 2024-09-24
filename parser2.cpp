@@ -145,9 +145,9 @@ Node *Parser2::parse_If() {
   if (next_tok != nullptr && next_tok->get_tag() == TOK_ELSE) {
     std::unique_ptr<Node> else_tok(expect(TOK_ELSE));
     expect_and_discard(TOK_LBRACE);
-    std::unique_ptr<Node> else_block(parse_SList());
+    std::unique_ptr<Node> else_block_node(parse_SList());
     expect_and_discard(TOK_RBRACE);
-    else_block = else_block.release();
+    else_block = else_block_node.release();
   }
 
   // Create AST_IF nmode
@@ -189,9 +189,9 @@ Node *Parser2::parse_SList() {
       break;
     }
     slist->append_kid(parse_Stmt());
-
-    return slist.release();
   }
+
+  return slist.release();
 }
 
 Node *Parser2::parse_Func() {
@@ -286,6 +286,8 @@ Node *Parser2::parse_ArgList() {
       break; // no more args
     }
   }
+
+  return arglist.release();
 }
 
 
@@ -395,7 +397,7 @@ Node *Parser2::parse_F() {
     std::unique_ptr<Node> ident(expect(TOK_IDENTIFIER));
     Node *next_next_tok = m_lexer->peek(2);
 
-    if (m_lexer->peek() != nullptr && m_lexer->peek()->get_tag() == TOK_LPAREN) {
+    if (next_next_tok != nullptr && next_next_tok->get_tag() == TOK_LPAREN) {
       // Function call
       expect_and_discard(TOK_IDENTIFIER);
       expect_and_discard(TOK_LPAREN);
