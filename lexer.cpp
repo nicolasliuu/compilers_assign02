@@ -164,8 +164,24 @@ Node *Lexer::handle_identifier_or_keyword(int c, std::string &lexeme, int line, 
   // Check if "var"
   if (tok->get_str() == "var") {
     Node *var_tok = token_create(TOK_VAR, tok->get_str(), line, col);  // Create TOK_VAR token
-    delete tok;  // Delete the original TOK_IDENTIFIER token to prevent memory leak
-    return var_tok;  // Return the new TOK_VAR token
+    delete tok;  
+    return var_tok;  
+  } else if (tok->get_str() == "function") {
+    Node *var_tok = token_create(TOK_FUNCTION, tok->get_str(), line, col);  // Create TOK_FUNCTION token
+    delete tok; 
+    return var_tok; 
+  } else if (tok->get_str() == "if") {
+    Node *var_tok = token_create(TOK_IF, tok->get_str(), line, col);  // Create TOK_IF token
+    delete tok;  
+    return var_tok; 
+  } else if (tok->get_str() == "else") {
+    Node *var_tok = token_create(TOK_ELSE, tok->get_str(), line, col);  // Create TOK_ELSE token
+    delete tok;  
+    return var_tok; 
+  } else if (tok->get_str() == "while") {
+    Node *var_tok = token_create(TOK_WHILE, tok->get_str(), line, col);  // Create TOK_WHILE token
+    delete tok;  
+    return var_tok; 
   }
 
   // Otherwise, just return the token as an identifier
@@ -242,6 +258,13 @@ Node *Lexer::handle_token(int c, std::string &lexeme, int line, int col) {
         return nullptr;
       }
     }
+    // Grouping/sequencing tokens
+    case '{':
+      return token_create(TOK_LBRACE, lexeme, line, col);
+    case '}':
+      return token_create(TOK_RBRACE, lexeme, line, col);
+    case ',':
+      return token_create(TOK_COMMA, lexeme, line, col);
     default:
       SyntaxError::raise(get_current_loc(), "Unrecognized character '%c'", c);
       return nullptr;

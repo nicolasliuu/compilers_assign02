@@ -26,7 +26,18 @@ enum TokenKind {
   TOK_LESS_EQUAL,       // '<='
   TOK_GREATER_EQUAL,    // '>='
   TOK_DOUBLE_EQUAL,     // '=='
-  TOK_NOT_EQUAL         // '!='
+  TOK_NOT_EQUAL,         // '!='
+
+  // Keyword tokens
+  TOK_FUNCTION,
+  TOK_IF,
+  TOK_ELSE,
+  TOK_WHILE,
+
+  // Grouping/sequencing tokens
+  TOK_LBRACE,
+  TOK_RBRACE,
+  TOK_COMMA
 };
 
 #endif // TOKEN_H

@@ -19,6 +19,13 @@ private:
   // Parse functions for nonterminal grammar symbols
   Node *parse_Unit();
   Node *parse_Stmt();
+  Node *parse_TStmt();
+  Node *parse_Func();
+  Node *parse_OptPList();
+  Node *parse_PList();
+  Node *parse_SList();
+  Node *parse_OptArgList();
+  Node *parse_ArgList();
   Node *parse_E();
   Node *parse_EPrime(Node *ast);
   Node *parse_T();
@@ -27,6 +34,11 @@ private:
   Node *parse_A();
   Node *parse_L();
   Node *parse_R();
+
+  // Helpers
+  Node *parse_varDec();
+  Node *parse_If();
+  Node *parse_While();
 
   // Consume a specific token, wrapping it in a Node
   Node *expect(enum TokenKind tok_kind);

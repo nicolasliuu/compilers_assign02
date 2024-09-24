@@ -23,6 +23,13 @@ enum ASTKind {
   AST_GREATER_EQUAL,
   AST_EQUAL,
   AST_NOT_EQUAL,
+  AST_IF,
+  AST_WHILE,
+  AST_FUNCTION,
+  AST_FNCALL,
+  AST_STATEMENT_LIST,
+  AST_PARAMETER_LIST,
+  AST_ARGLIST,
 };
 
 class ASTTreePrint : public TreePrint {

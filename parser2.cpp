@@ -47,6 +47,9 @@ Node *Parser2::parse_Unit() {
   // note that this function produces a "flattened" representation
   // of the unit
 
+  // new production Unit -> TStmt
+  // new production Unit -> TStmt Unit
+
   std::unique_ptr<Node> unit(new Node(AST_UNIT));
   for (;;) {
     unit->append_kid(parse_Stmt());
@@ -55,6 +58,23 @@ Node *Parser2::parse_Unit() {
   }
 
   return unit.release();
+}
+
+Node *Parser2::parse_TStmt() {
+  // Peek at the next token to decide what kind of statement we are parsing
+  Node *next_tok = m_lexer->peek();
+  if (next_tok == nullptr) {
+    SyntaxError::raise(m_lexer->get_current_loc(), "Unexpected end of input looking for statement");
+  }
+
+  // Check if the next token is 'function' (indicating a function definition)
+  if (next_tok->get_tag() == TOK_FUNCTION) {
+    // TStmt → Func
+    return parse_Func();  // Parse the function definition
+  } else {
+    // TStmt → Stmt
+    return parse_Stmt();  // Parse a regular statement
+  }
 }
 
 Node *Parser2::parse_Stmt() {
@@ -67,32 +87,207 @@ Node *Parser2::parse_Stmt() {
   }
 
   // Check if the next token is 'var' (indicating a variable declaration)
-  if (next_tok->get_tag() == TOK_VAR) {
-    // Stmt → var ident ;
-    std::unique_ptr<Node> var_decl(expect(TOK_VAR));       // Consume 'var'
-    std::unique_ptr<Node> ident(expect(TOK_IDENTIFIER));   // Consume identifier (e.g., 'a')
-    
-    // Create an AST_VARREF node for the variable reference
-    std::unique_ptr<Node> var_ref(new Node(AST_VARREF));
-    var_ref->set_str(ident->get_str());                    // Set the identifier string
-    var_ref->set_loc(ident->get_loc());                    // Set the location info
-
-    expect_and_discard(TOK_SEMICOLON);                     // Consume ';'
-
-    // Create the AST_VARDEF node and append the VARREF node as a child
-    std::unique_ptr<Node> var_def_node(new Node(AST_VARDEF, {var_ref.release()}));
-    var_def_node->set_loc(var_decl->get_loc());            // Set the location to 'var'
-    stmt->append_kid(var_def_node.release());              // Append the variable definition node to the statement
-
-  } else {
-    // Handle other statements, like assignments or expressions
-    // Stmt → A ;
-    stmt->append_kid(parse_A());                           // Parse the A non-terminal (assignment or expression)
-    expect_and_discard(TOK_SEMICOLON);                     // Consume the semicolon at the end of the statement
+  switch(next_tok->get_tag()) {
+    case TOK_VAR: 
+      stmt->append_kid(parse_varDec());  // parse var declaration
+      break;
+    case TOK_IF: 
+      stmt->append_kid(parse_If());      // parse if statement
+      break;
+    case TOK_WHILE:
+      stmt->append_kid(parse_While());   // parse while statement
+      break;
+    default: 
+      // Handle other statements, like assignments or expressions
+      // Stmt → A ;
+      stmt->append_kid(parse_A());                           // Parse the A non-terminal (assignment or expression)
+      expect_and_discard(TOK_SEMICOLON);                     // Consume the semicolon at the end of the statement
+      break;
   }
-
   return stmt.release();  // Return the constructed statement node
 }
+
+// Parse variable decl helper
+Node *Parser2::parse_varDec() {
+  // Stmt → var ident ;
+  std::unique_ptr<Node> var_decl(expect(TOK_VAR));       // Consume 'var'
+  std::unique_ptr<Node> ident(expect(TOK_IDENTIFIER));   // Consume identifier (e.g., 'a')
+  
+  // Create an AST_VARREF node for the variable reference
+  std::unique_ptr<Node> var_ref(new Node(AST_VARREF));
+  var_ref->set_str(ident->get_str());                    // Set the identifier string
+  var_ref->set_loc(ident->get_loc());                    // Set the location info
+
+  expect_and_discard(TOK_SEMICOLON);                     // Consume ';'
+
+  // Create the AST_VARDEF node and append the VARREF node as a child
+  std::unique_ptr<Node> var_def_node(new Node(AST_VARDEF, {var_ref.release()}));
+  var_def_node->set_loc(var_decl->get_loc());            // Set the location to 'var'
+  return var_def_node.release();                         // Return the constructed variable declaration node
+}
+
+Node *Parser2::parse_If() {
+  //   Stmt →       if ( A ) { SList }                     -- if stmt
+  // Stmt →       if ( A ) { SList } else { SList }      -- if/else stmt 
+  std::unique_ptr<Node> if_tok(expect(TOK_IF));
+  expect_and_discard(TOK_LPAREN);
+  std::unique_ptr<Node> condition(parse_A());
+  expect_and_discard(TOK_RPAREN);
+
+  expect_and_discard(TOK_LBRACE);
+  std::unique_ptr<Node> slist(parse_SList()); // parse statementlist
+  expect_and_discard(TOK_RBRACE);
+
+  Node *else_block = nullptr;
+
+  // Check else
+  Node *next_tok = m_lexer->peek();
+  if (next_tok != nullptr && next_tok->get_tag() == TOK_ELSE) {
+    std::unique_ptr<Node> else_tok(expect(TOK_ELSE));
+    expect_and_discard(TOK_LBRACE);
+    std::unique_ptr<Node> else_block(parse_SList());
+    expect_and_discard(TOK_RBRACE);
+    else_block = else_block.release();
+  }
+
+  // Create AST_IF nmode
+  std::vector<Node *> children = {condition.release(), slist.release()};
+  if (else_block != nullptr) {
+    children.push_back(else_block);
+  }
+  std::unique_ptr<Node> if_node(new Node(AST_IF, children));
+  if_node->set_loc(if_tok->get_loc());
+
+  return if_node.release();
+}
+
+Node *Parser2::parse_While() {
+  // Stmt → while ( A ) { SList }
+  std::unique_ptr<Node> while_tok(expect(TOK_WHILE));
+
+  expect_and_discard(TOK_LPAREN);
+  std::unique_ptr<Node> condition(parse_A());
+  expect_and_discard(TOK_RPAREN);
+
+  expect_and_discard(TOK_LBRACE);
+  std::unique_ptr<Node> slist(parse_SList());
+  expect_and_discard(TOK_RBRACE);
+
+  // Create AST_WHILE node
+  std::vector<Node *> children = { condition.release(), slist.release() };
+  std::unique_ptr<Node> while_node(new Node(AST_WHILE, children));
+  while_node->set_loc(while_tok->get_loc());
+
+  return while_node.release();
+}
+
+Node *Parser2::parse_SList() {
+  std::unique_ptr<Node> slist (new Node(AST_STATEMENT_LIST));
+  while (true) {
+    Node *next_tok = m_lexer->peek();
+    if (next_tok == nullptr || next_tok->get_tag() == TOK_RBRACE) {
+      break;
+    }
+    slist->append_kid(parse_Stmt());
+
+    return slist.release();
+  }
+}
+
+Node *Parser2::parse_Func() {
+  // func -> function ident ( OptPList ) { SList }
+  std::unique_ptr<Node> func_tok(expect(TOK_FUNCTION));
+
+  std::unique_ptr<Node> ident(expect(TOK_IDENTIFIER));
+  Location func_loc = func_tok->get_loc();
+
+  expect_and_discard(TOK_LPAREN);
+  std::unique_ptr<Node> parameter_list(parse_OptPList());
+  expect_and_discard(TOK_RPAREN);
+
+  expect_and_discard(TOK_LBRACE);
+  std::unique_ptr<Node> slist(parse_SList());
+  expect_and_discard(TOK_RBRACE);
+
+  // AST_FUNCTION node
+  std::vector<Node *> children;
+
+  if (parameter_list != nullptr) {
+    children.push_back(parameter_list.release());
+  }
+  children.push_back(slist.release());
+
+  std::unique_ptr<Node> func_node(new Node(AST_FUNCTION, children));
+  func_node->set_str(ident->get_str());
+  func_node->set_loc(func_loc);
+
+  return func_node.release();
+}
+
+Node *Parser2::parse_OptPList() {
+  Node *next_tok = m_lexer->peek();
+  if (next_tok != nullptr && next_tok->get_tag() == TOK_IDENTIFIER) {
+    return parse_PList();
+  }
+  return nullptr; // epsilon
+}
+
+Node *Parser2::parse_PList() {
+  std::unique_ptr<Node> plist(new Node(AST_PARAMETER_LIST));
+
+  // parse first ident
+  std::unique_ptr<Node> ident(expect(TOK_IDENTIFIER));
+  std::unique_ptr<Node> var_ref(new Node(AST_VARREF));
+  var_ref->set_str(ident->get_str());
+  var_ref->set_loc(ident->get_loc());
+  plist->append_kid(var_ref.release());
+
+  // parse remaining params if any
+  while (true) {
+    Node *next_tok = m_lexer->peek();
+    if (next_tok != nullptr && next_tok->get_tag() == TOK_COMMA) {
+      expect_and_discard(TOK_COMMA);
+      std::unique_ptr<Node> ident(expect(TOK_IDENTIFIER));
+      std::unique_ptr<Node> var_ref(new Node(AST_VARREF));
+      var_ref->set_str(ident->get_str());
+      var_ref->set_loc(ident->get_loc());
+      plist->append_kid(var_ref.release());
+    } else {
+      break;
+    }
+  }
+
+  return plist.release();
+}
+
+Node *Parser2::parse_OptArgList() {
+  Node *next_tok = m_lexer->peek();
+  if (next_tok != nullptr && next_tok->get_tag() == TOK_IDENTIFIER) {
+    return parse_ArgList();
+  }
+  return nullptr; // epsilon
+}
+
+Node *Parser2::parse_ArgList() {
+  std::unique_ptr<Node> arglist(new Node(AST_ARGLIST));
+
+  // parse frist arg (L)
+  std::unique_ptr<Node> arg(parse_L());
+  arglist->append_kid(arg.release());
+
+  // parse remaining args if any
+  while (true) {
+    Node *next_tok = m_lexer->peek();
+    if (next_tok != nullptr && next_tok->get_tag() == TOK_COMMA) {
+      expect_and_discard(TOK_COMMA);
+      std::unique_ptr<Node> arg(parse_L()); //next arg
+      arglist->append_kid(arg.release());
+    } else {
+      break; // no more args
+    }
+  }
+}
+
 
 Node *Parser2::parse_E() {
   // E -> ^ T E'
@@ -186,6 +381,7 @@ Node *Parser2::parse_F() {
   // F -> ^ number
   // F -> ^ ident
   // F -> ^ ( E )
+  // F →          ident ( OptArgList )             -- function call
 
   Node *next_tok = m_lexer->peek();
   if (next_tok == nullptr) {
@@ -193,20 +389,55 @@ Node *Parser2::parse_F() {
   }
 
   int tag = next_tok->get_tag();
-  if (tag == TOK_INTEGER_LITERAL || tag == TOK_IDENTIFIER) {
-    // F -> ^ number
-    // F -> ^ ident
-    std::unique_ptr<Node> tok(expect(static_cast<enum TokenKind>(tag)));
-    int ast_tag = tag == TOK_INTEGER_LITERAL ? AST_INT_LITERAL : AST_VARREF;
-    std::unique_ptr<Node> ast(new Node(ast_tag));
+  
+  if (tag == TOK_IDENTIFIER) {
+    // Could be function call or var reference
+    std::unique_ptr<Node> ident(expect(TOK_IDENTIFIER));
+    Node *next_next_tok = m_lexer->peek(2);
+
+    if (m_lexer->peek() != nullptr && m_lexer->peek()->get_tag() == TOK_LPAREN) {
+      // Function call
+      expect_and_discard(TOK_IDENTIFIER);
+      expect_and_discard(TOK_LPAREN);
+      std::unique_ptr<Node> arglist(parse_OptArgList());
+      expect_and_discard(TOK_RPAREN);
+
+      // AST_FNCALL
+      std::vector<Node *> children;
+      std::unique_ptr<Node> var_ref(new Node(AST_VARREF));
+      var_ref->set_str(ident->get_str());
+      var_ref->set_loc(ident->get_loc());
+      children.push_back(var_ref.release());
+
+      if (arglist != nullptr) {
+        children.push_back(arglist.release());
+      }
+
+      std::unique_ptr<Node> fncall(new Node(AST_FNCALL, children));
+      fncall->set_loc(ident->get_loc());
+
+      return fncall.release();
+
+    } else {
+      // Variable reference identifier
+      std::unique_ptr<Node> var_ref(new Node(AST_VARREF));
+      var_ref->set_str(ident->get_str());
+      var_ref->set_loc(ident->get_loc());
+      return var_ref.release();
+    }
+  } else if (tag == TOK_INTEGER_LITERAL) {
+    // F -> number
+    std::unique_ptr<Node> tok(expect(TOK_INTEGER_LITERAL));
+    std::unique_ptr<Node> ast(new Node(AST_INT_LITERAL));
+
     ast->set_str(tok->get_str());
     ast->set_loc(tok->get_loc());
+
     return ast.release();
   } else if (tag == TOK_LPAREN) {
-    // F -> ^ ( E )
+    // F -> ( E )
     expect_and_discard(TOK_LPAREN);
-    // std::unique_ptr<Node> ast(parse_E());
-    std::unique_ptr<Node> ast(parse_A()); // F -> ( A ) instead of ( E )
+    std::unique_ptr<Node> ast(parse_E());
     expect_and_discard(TOK_RPAREN);
     return ast.release();
   } else {
