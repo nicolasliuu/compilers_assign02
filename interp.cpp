@@ -27,6 +27,7 @@ Interpreter::Interpreter(Node *ast_to_adopt, Environment *env)
 
 Interpreter::~Interpreter() {
   delete m_ast;
+  delete m_env;
 }
 
 void Interpreter::analyze_node(Node* node, Environment& env) {
@@ -106,7 +107,7 @@ Value Interpreter::evaluate(Node* node, Environment& env) {
             std::string var_name = var_ref_node->get_str();
             Value expr_val = evaluate(expr_node, env);
             if (!env.is_defined(var_name)) {
-                EvaluationError::raise(node->get_loc(), "Assignment to undefined variable '%s'.", var_name.c_str());
+                SemanticError::raise(node->get_loc(), "Assignment to undefined variable '%s'.", var_name.c_str());
             }
             env.set_variable(var_name, expr_val);
             return expr_val;

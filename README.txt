@@ -1,11 +1,15 @@
-I implemented a basic interpreter with a lexer, parser, and environment to
-handle basic calculator features with arithmetic and logical expressions. The lexer includes additional
-capability to handle multi-character tokens like ==, !=, <=, >=, &&, ||, and variable declarations.
- The parser constructs an abstract syntax tree (AST) using a recursive descent approach, 
- managing operator precedence and associativity directly in the grammar. The interpreter uses the AST 
- to evaluate expressions and statements, centralizing the handling of binary operations 
- via a helper function (get_operator_result) for clarity and consistency. 
+Assignment 2 Milestone 1: 
 
- I added an Environment field directly in the Interpreter class to manage definitions and values within a global environment 
- so it didn't need to be passed between functions. The environment is currently only a map of variable names to values,
- and it currently only supports one global environment. I also added new AST tags for the new node implementations.
+Extended the interpreter by adding support for functions, control flow constructs, and nested environments. 
+To achieve this, I enhanced the parser to handle new grammar rules for functions, if, else, and while statements. 
+I introduced top-level function definitions and argument lists while ensuring that the Abstract Syntax Tree (AST) captures 
+these structures efficiently. To manage scoping, I updated the Environment class to track variables in nested blocks
+ and added methods to check variable definitions in both the current and parent scopes. 
+ For function calls, I implemented a mechanism where each call creates a new environment, 
+ binding arguments to parameters and evaluating the function body within this scope. 
+ 
+I implemented short-circuiting logical operators (&&, ||), ensuring that unnecessary expressions are not evaluated.
+
+Memory management was refined by updating the Value class to support dynamic memory for functions using reference counting. 
+These changes allow the interpreter to handle more complex code with proper scope management
+ and efficient execution of control flows and functions.
