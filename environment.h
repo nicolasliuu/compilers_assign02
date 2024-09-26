@@ -23,6 +23,7 @@ public:
   void define_variable(const std::string& name, const Value& value);
 
   bool is_defined(const std::string& name) const;
+  bool is_defined_in_current(const std::string& name) const;
 
   Value get_variable(const std::string& name) const;
 

@@ -21,30 +21,41 @@ Value::Value(IntrinsicFn intrinsic_fn)
 }
 
 Value::Value(const Value &other)
-  : m_kind(VALUE_INT) {
-  // Just use the assignment operator to copy the other Value's data
-  *this = other;
+    : m_kind(other.m_kind) {
+    if (other.is_dynamic()) {
+        m_rep = other.m_rep;
+        m_rep->add_ref();
+    } else {
+        m_atomic = other.m_atomic;
+    }
 }
 
 Value::~Value() {
-  // TODO: handle reference counting (detach from ValRep, if any)
+    if (is_dynamic()) {
+        m_rep->remove_ref();
+        if (m_rep->get_num_refs() == 0) {
+            delete m_rep;
+        }
+    }
 }
 
 Value &Value::operator=(const Value &rhs) {
-  if (this != &rhs &&
-      !(is_dynamic() && rhs.is_dynamic() && m_rep == rhs.m_rep)) {
-    // TODO: handle reference counting (detach from previous ValRep, if any)
-    m_kind = rhs.m_kind;
-    if (is_dynamic()) {
-      // attach to rhs's dynamic representation
-      m_rep = rhs.m_rep;
-      // TODO: handle reference counting (attach to the new ValRep)
-    } else {
-      // copy rhs's atomic representation
-      m_atomic = rhs.m_atomic;
+    if (this != &rhs) {
+        if (is_dynamic()) {
+            m_rep->remove_ref();
+            if (m_rep->get_num_refs() == 0) {
+                delete m_rep;
+            }
+        }
+        m_kind = rhs.m_kind;
+        if (rhs.is_dynamic()) {
+            m_rep = rhs.m_rep;
+            m_rep->add_ref();
+        } else {
+            m_atomic = rhs.m_atomic;
+        }
     }
-  }
-  return *this;
+    return *this;
 }
 
 Function *Value::get_function() const {

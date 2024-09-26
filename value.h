@@ -58,6 +58,9 @@ public:
   // Getters to extract the contents of a Value.
   // The caller should use get_kind() first to determine
   // what kind of data the Value is storing.
+  bool is_int() const {
+    return m_kind == VALUE_INT;
+  }
 
   int get_ival() const {
     assert(m_kind == VALUE_INT);
@@ -65,6 +68,8 @@ public:
   }
 
   Function *get_function() const;
+
+  bool is_intrinsic_fn() const { return m_kind == VALUE_INTRINSIC_FN; }
 
   IntrinsicFn get_intrinsic_fn() const {
     assert(m_kind == VALUE_INTRINSIC_FN);

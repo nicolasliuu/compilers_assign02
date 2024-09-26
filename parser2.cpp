@@ -52,7 +52,7 @@ Node *Parser2::parse_Unit() {
 
   std::unique_ptr<Node> unit(new Node(AST_UNIT));
   for (;;) {
-    unit->append_kid(parse_Stmt());
+    unit->append_kid(parse_TStmt());
     if (m_lexer->peek() == nullptr)
       break;
   }
@@ -195,11 +195,16 @@ Node *Parser2::parse_SList() {
 }
 
 Node *Parser2::parse_Func() {
-  // func -> function ident ( OptPList ) { SList }
+  // Func → function ident ( OptPList ) { SList }
   std::unique_ptr<Node> func_tok(expect(TOK_FUNCTION));
 
   std::unique_ptr<Node> ident(expect(TOK_IDENTIFIER));
   Location func_loc = func_tok->get_loc();
+
+  // create varref node
+  std::unique_ptr<Node> func_name_node(new Node(AST_VARREF));
+  func_name_node->set_str(ident->get_str());
+  func_name_node->set_loc(ident->get_loc());
 
   expect_and_discard(TOK_LPAREN);
   std::unique_ptr<Node> parameter_list(parse_OptPList());
@@ -209,21 +214,24 @@ Node *Parser2::parse_Func() {
   std::unique_ptr<Node> slist(parse_SList());
   expect_and_discard(TOK_RBRACE);
 
-  // AST_FUNCTION node
+  // Build the list of child nodes for the FUNCTION node
   std::vector<Node *> children;
+
+  // add varref as first child
+  children.push_back(func_name_node.release());
 
   if (parameter_list != nullptr) {
     children.push_back(parameter_list.release());
   }
+
   children.push_back(slist.release());
 
   std::unique_ptr<Node> func_node(new Node(AST_FUNCTION, children));
-  func_node->set_str(ident->get_str());
   func_node->set_loc(func_loc);
 
   return func_node.release();
 }
-
+  
 Node *Parser2::parse_OptPList() {
   Node *next_tok = m_lexer->peek();
   if (next_tok != nullptr && next_tok->get_tag() == TOK_IDENTIFIER) {
@@ -262,10 +270,16 @@ Node *Parser2::parse_PList() {
 
 Node *Parser2::parse_OptArgList() {
   Node *next_tok = m_lexer->peek();
-  if (next_tok != nullptr && next_tok->get_tag() == TOK_IDENTIFIER) {
+  if (next_tok != nullptr && can_start_expression(next_tok)) {
     return parse_ArgList();
   }
   return nullptr; // epsilon
+}
+
+// Helper function to determine if a token can start an expression
+bool Parser2::can_start_expression(Node *tok) {
+  int tag = tok->get_tag();
+  return tag == TOK_IDENTIFIER || tag == TOK_INTEGER_LITERAL || tag == TOK_LPAREN;
 }
 
 Node *Parser2::parse_ArgList() {
@@ -395,11 +409,10 @@ Node *Parser2::parse_F() {
   if (tag == TOK_IDENTIFIER) {
     // Could be function call or var reference
     std::unique_ptr<Node> ident(expect(TOK_IDENTIFIER));
-    Node *next_next_tok = m_lexer->peek(2);
+    Node *next_tok = m_lexer->peek();
 
-    if (next_next_tok != nullptr && next_next_tok->get_tag() == TOK_LPAREN) {
+    if (next_tok != nullptr && next_tok->get_tag() == TOK_LPAREN) {
       // Function call
-      expect_and_discard(TOK_IDENTIFIER);
       expect_and_discard(TOK_LPAREN);
       std::unique_ptr<Node> arglist(parse_OptArgList());
       expect_and_discard(TOK_RPAREN);
@@ -439,7 +452,7 @@ Node *Parser2::parse_F() {
   } else if (tag == TOK_LPAREN) {
     // F -> ( E )
     expect_and_discard(TOK_LPAREN);
-    std::unique_ptr<Node> ast(parse_E());
+    std::unique_ptr<Node> ast(parse_A());
     expect_and_discard(TOK_RPAREN);
     return ast.release();
   } else {

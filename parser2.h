@@ -39,6 +39,7 @@ private:
   Node *parse_varDec();
   Node *parse_If();
   Node *parse_While();
+  bool can_start_expression(Node *tok);
 
   // Consume a specific token, wrapping it in a Node
   Node *expect(enum TokenKind tok_kind);

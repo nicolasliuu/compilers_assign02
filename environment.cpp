@@ -14,6 +14,10 @@ void Environment::define_variable(const std::string& name, const Value& value) {
     variables[name] = value;
 }
 
+bool Environment::is_defined_in_current(const std::string& name) const {
+    return variables.find(name) != variables.end();
+}
+
 // Check if a variable is defined (in current or parent environments)
 bool Environment::is_defined(const std::string& name) const {
     // Check in the current environment
